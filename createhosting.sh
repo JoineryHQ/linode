@@ -9,16 +9,16 @@
 MYDIR="$( cd -P "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )/"
 
 # Source config file or exit.
-if [ -e ${MYDIR}/config.sh ]; then
-  source ${MYDIR}/config.sh
+if [ -e "${MYDIR}/config.sh" ]; then
+  source "${MYDIR}/config.sh"
 else
   echo "Could not find required config file at ${MYDIR}/config.sh. Exiting."
   exit 1
 fi
 
 # Source functions file or exit.
-if [ -e ${MYDIR}/functions.sh ]; then
-  source ${MYDIR}/functions.sh
+if [ -e "${MYDIR}/functions.sh" ]; then
+  source "${MYDIR}/functions.sh"
 else
   echo "Could not find required functions file at ${MYDIR}/functions.sh. Exiting."
   exit 1
@@ -43,13 +43,13 @@ function usage {
   echo "    -d: (Required, string) Customer domain name"
   echo "    -y: (Optional, null) If given, script will not prompt for confirmation"
   echo "        before creating the linode."
-  echo 
+  echo
   echo "See also: config.sh in $MYDIR.";
   exit 1;
 }
 
 # Process user-provided options.
-while getopts l:r:t:s:u:d:y FLAG; do
+while getopts l:r:t:s:u:d:yh FLAG; do
   case $FLAG in
     l)
       LABEL=$OPTARG
@@ -86,7 +86,7 @@ done
 # aren't provided by the user.
 #   For options with a value of '-', prompt the user to type in a text value.
 #   For other options, treat the value as parameters for the 'linode-cli' command and
-#     use that command to generate a list of numbered options from which the user 
+#     use that command to generate a list of numbered options from which the user
 #     can select.
 declare -A OPTIONS;
 OPTIONS[LABEL]="-"
@@ -104,15 +104,15 @@ for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
       info "========= (For more info run: linode-cli ${OPTIONS[$i]})";
       # Create a temp file to hold the options, one per line.
       OPTFILE=$(mktemp);
-      linode-cli ${OPTIONS[$i]} --text --no-headers --format=id | sort >> $OPTFILE;
+      linode-cli ${OPTIONS[$i]} --text --no-headers --format=id | sort >> "$OPTFILE";
       # Print the options, numbered per line in options temp file.
-      cat --number $OPTFILE;
+      cat --number "$OPTFILE";
       # Ask the user to select a numbered line.
       read -p "Please provide $i (required) (Enter the number of your selection from options above): " INPUT;
       # Retrieve the line of the given line number, and store it in the named variable.
-      printf -v "$i" '%s' $(sed "${INPUT}q;d" $OPTFILE);
+      printf -v "$i" '%s' "$(sed "${INPUT}q;d" "$OPTFILE")";
       # Remove the temporary options file.
-      rm $OPTFILE;
+      rm "$OPTFILE";
     else
       # This is a text value; prompt the user to type it in.
       read -p "Please provide $i (required): " $i;
@@ -158,29 +158,29 @@ PASSWORDLOG=$(createlogfile "linode_passwords");
 info "Password log created at $PASSWORDLOG";
 
 # Create the linode and note its ID.
-LINODEID=$(create "$LABEL" "$REGION" "$TYPE" $CREATE_IMAGE $(generatepassword "root"));
+LINODEID=$(create "$LABEL" "$REGION" "$TYPE" "$CREATE_IMAGE" $(generatepassword "root"));
 # Store the new linode's IP address.
-IP=$(getlinodevalue ipv4 $LINODEID);
+IP=$(getlinodevalue ipv4 "$LINODEID");
 info "IP: $IP";
 
 # Wait until the linode is running.
-waitforstatus "running" $LINODEID;
+waitforstatus "running" "$LINODEID";
 # Wait until ssh is active on the linode.
-waitforssh root $IP
+waitforssh root "$IP"
 
 # Prepare a config file for the setup scripts.
 CONFIGFILE=$(createsetupconfig "$LINODEID" "$SERVERNAME" "$USERNAME" "$DOMAINNAME");
 info "configfile: $CONFIGFILE";
 
 # Upload the setup scripts and the config file.
-scp ${PROVISION_SCRIPTS_DIR}/*setup*sh root@$IP:.
-scp $CONFIGFILE root@$IP:config.sh
+scp "${PROVISION_SCRIPTS_DIR}"/*setup*sh root@"$IP":.
+scp "$CONFIGFILE" root@"$IP":config.sh
 # Remove the setup config file; it contains passwords and should not be retained.
-rm $CONFIGFILE;
+rm "$CONFIGFILE";
 
 # Run setup scripts in background (ref https://stackoverflow.com/a/2831449).
 info "Starting setupall.sh on $IP."
-ssh root@$IP "sh -c 'nohup ./setupall.sh > /dev/null 2>&1 &'"
+ssh root@"$IP" "sh -c 'nohup ./setupall.sh > /dev/null 2>&1 &'"
 
 # Inform the user of the password log file.
 info "Passwords in $PASSWORDLOG . DELETE THIS FILE ASAP.";

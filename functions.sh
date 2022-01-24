@@ -9,8 +9,8 @@
 MYDIR="$( cd -P "$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )" && pwd )/"
 
 # Source config file or exit.
-if [ -e ${MYDIR}/config.sh ]; then
-  source ${MYDIR}/config.sh
+if [ -e "${MYDIR}/config.sh" ]; then
+  source "${MYDIR}/config.sh"
 else
   echo "Could not find required config file at ${MYDIR}/config.sh. Exiting."
   exit 1
@@ -39,7 +39,7 @@ function fatal {
 # Log a message to the password log file.
 function logpassword {
   info "Logging to $PASSWORDLOG: $1";
-  echo "$1" >> $PASSWORDLOG;  
+  echo "$1" >> "$PASSWORDLOG";
 }
 
 # Print a progress dot to STDERR.
@@ -55,7 +55,7 @@ function create {
   local TYPE="$3";
   local IMAGE="$4";
   local ROOTPASS="$5";
-  
+
   info "Attempt create linode type='$TYPE' region='$REGION' image='$IMAGE' --label='$LABEL'";
   # Create the linode and store its id.
   LINODEID=$(linode-cli linodes create --text --format=id --no-headers --type="$TYPE" --region="$REGION" --image="$IMAGE" --root_pass="$ROOTPASS" --label="$LABEL" --authorized_keys="$(cat /home/as/.ssh/id_rsa.pub)");
@@ -63,19 +63,19 @@ function create {
   # Report status; die if creation failed.
   if [[ -n "$LINODEID" ]]; then
     info "Created linode, ID: $LINODEID; label: $LABEL"
-  else 
+  else
     # fatal "Linode creation failed. See notes above."
     fatal "Linode creation failed. See notes above."
   fi
 
-  echo $LINODEID;
+  echo "$LINODEID";
 }
 
 # For a given linode (by id), retrieve a particalar value from the `linode-cli linodes list` api.
 function getlinodevalue {
   local NAME="$1"
   local LINODEID="$2"
-  linode-cli linodes list --id=$LINODEID --format="$NAME" --text --no-headers;
+  linode-cli linodes list --id="$LINODEID" --format="$NAME" --text --no-headers;
 }
 
 # Wait (up to $WAITTIME seconds) for the given linode to have a given status.
@@ -85,18 +85,18 @@ function waitforstatus {
   local LIVESTATUS="";
 
   local TIMEOUTTIME=$(( $(date +%s) + $WAITTIME));
-  
+
   info "Waiting for $TARGETSTATUS status on linode $LINODEID ...";
   while [[ "$LIVESTATUS" != "$TARGETSTATUS" ]]; do
     if [[ $(date +%s) -ge $TIMEOUTTIME ]]; then
       fatal "waitforstatus timed out waiting for $TARGETSTATUS status on linode $LINODEID";
     fi
-    LIVESTATUS=$(getlinodevalue "status" $LINODEID);
+    LIVESTATUS=$(getlinodevalue "status" "$LINODEID");
     if [[ "$LIVESTATUS" != "$TARGETSTATUS" ]]; then
       # print a dot to indicate passage of time.
       progress;
       # wait 1 second before trying again.
-      sleep 1; 
+      sleep 1;
    fi
   done;
   info "Linode $LINODEID has achieved status $LIVESTATUS.";
@@ -106,13 +106,13 @@ function waitforstatus {
 # generatepassword $label.
 function generatepassword {
   local PASS=$(curl -s "https://www.random.org/strings/?num=2&len=20&digits=on&upperalpha=on&loweralpha=on&unique=on&format=plain&rnd=new" | tr -d '\n' 2>/dev/null);
-  logpassword "$1: $PASS"; 
-  echo $PASS;
+  logpassword "$1: $PASS";
+  echo "$PASS";
 }
 
 # Create a log file for any purpose using the given base-name, with template "/tmp/$1.XXXXXXXX"
 function createlogfile {
-  echo $(mktemp "/tmp/$1.XXXXXXXX");
+  mktemp "/tmp/$1.XXXXXXXX";
 }
 
 # Create a config file to be used by setup scripts. Return the full path of that file.
@@ -129,18 +129,18 @@ function createsetupconfig {
 
   LOCALCONFIGFILE=$(mktemp "/tmp/linode_setup_config_${LINODEID}.sh.XXXXXXX");
 
-  echo "# Used by setup.sh" >> $LOCALCONFIGFILE;
-  echo "ADMINUSERNAME=\"$ADMINUSERNAME\";" >> $LOCALCONFIGFILE;
-  echo "ADMINUSERPASS=\"$(generatepassword adminuser_pass)\";" >> $LOCALCONFIGFILE;
-  echo "SERVERNAME=\"$SERVERNAME\";" >> $LOCALCONFIGFILE;
-  echo "MYSQLROOTPASS=\"$(generatepassword mysql_root)\";" >> $LOCALCONFIGFILE;
-  echo "" >> $LOCALCONFIGFILE;
-  echo "# Used by customer_setup.sh" >> $LOCALCONFIGFILE;
-  echo "USER=\"$USER\";" >> $LOCALCONFIGFILE;
-  echo "PASS=\"$(generatepassword customeruser_pass)\";" >> $LOCALCONFIGFILE;
-  echo "DOMAINNAME=\"$DOMAINNAME\";" >> $LOCALCONFIGFILE;
+  echo "# Used by setup.sh" >> "$LOCALCONFIGFILE";
+  echo "ADMINUSERNAME=\"$ADMINUSERNAME\";" >> "$LOCALCONFIGFILE";
+  echo "ADMINUSERPASS=\"$(generatepassword adminuser_pass)\";" >> "$LOCALCONFIGFILE";
+  echo "SERVERNAME=\"$SERVERNAME\";" >> "$LOCALCONFIGFILE";
+  echo "MYSQLROOTPASS=\"$(generatepassword mysql_root)\";" >> "$LOCALCONFIGFILE";
+  echo "" >> "$LOCALCONFIGFILE";
+  echo "# Used by customer_setup.sh" >> "$LOCALCONFIGFILE";
+  echo "USER=\"$USER\";" >> "$LOCALCONFIGFILE";
+  echo "PASS=\"$(generatepassword customeruser_pass)\";" >> "$LOCALCONFIGFILE";
+  echo "DOMAINNAME=\"$DOMAINNAME\";" >> "$LOCALCONFIGFILE";
 
-  echo $LOCALCONFIGFILE;
+  echo "$LOCALCONFIGFILE";
 }
 
 # Wait for ssh to be active on the given linode
@@ -148,16 +148,16 @@ function createsetupconfig {
 function waitforssh {
   # Ensure any existing key for this new server IP is removed. We've seen cases
   # in testing where IP addresses are re-used.
-  ssh-keygen -R $2
+  ssh-keygen -R "$2"
 
   local TIMEOUTTIME=$(( $(date +%s) + $WAITTIME));
-  
+
   info "Waiting for ssh active on $1@$2 ...";
   while [[ $(date +%s) -le $TIMEOUTTIME ]]; do
     # Option "StrictHostKeyChecking no" will add server key to local store without checking.
     # ":" is bash no-op.
-    ssh -q -o "StrictHostKeyChecking no" $1@$2 ":" 2>&1 > /dev/null;
-    if [ $? -eq 0 ]; then
+    ssh -q -o "StrictHostKeyChecking no" "$1"@"$2" ":" > /dev/null 2>&1;
+    if [[ $? -eq 0 ]]; then
       info "ssh connection successful for $1@$2";
       return;
     fi;
