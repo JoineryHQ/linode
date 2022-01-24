@@ -26,7 +26,7 @@ fi
 
 validateconfig;
 
-
+# Print usage.
 function usage {
   echo "Usage: $0 [options]"
   echo "  Create a linode with image $CREATE_IMAGE, and peform hosting setup on that linode."
@@ -48,6 +48,7 @@ function usage {
   exit 1;
 }
 
+# Process user-provided options.
 while getopts l:r:t:s:u:d:y FLAG; do
   case $FLAG in
     l)
@@ -81,6 +82,12 @@ while getopts l:r:t:s:u:d:y FLAG; do
   esac
 done
 
+# Define an array of options so that we can prompt appropriately if required options
+# aren't provided by the user.
+#   For options with a value of '-', prompt the user to type in a text value.
+#   For other options, treat the value as parameters for the 'linode-cli' command and
+#     use that command to generate a list of numbered options from which the user 
+#     can select.
 declare -A OPTIONS;
 OPTIONS[LABEL]="-"
 OPTIONS[REGION]="regions list"
@@ -90,19 +97,29 @@ OPTIONS[USERNAME]="-"
 OPTIONS[DOMAINNAME]="-"
 for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
   while [[ -z "${!i}" ]]; do
-    NOTE="";
     if [[ "${OPTIONS[$i]}" != "-" ]]; then
+      # This is a linode-cli set of options.
+      # Print an informative intro.
       info "========= Options for $i: ";
       info "========= (For more info run: linode-cli ${OPTIONS[$i]})";
+      # Create a temp file to hold the options, one per line.
       OPTFILE=$(mktemp);
       linode-cli ${OPTIONS[$i]} --text --no-headers --format=id | sort >> $OPTFILE;
+      # Print the options, numbered per line in options temp file.
       cat --number $OPTFILE;
+      # Ask the user to select a numbered line.
       read -p "Please provide $i (required) (Enter the number of your selection from options above): " INPUT;
+      # Retrieve the line of the given line number, and store it in the named variable.
       printf -v "$i" '%s' $(sed "${INPUT}q;d" $OPTFILE);
+      # Remove the temporary options file.
+      rm $OPTFILE;
     else
+      # This is a text value; prompt the user to type it in.
       read -p "Please provide $i (required): " $i;
     fi;
     if [[ -z "${!i}" ]]; then
+      # If the value is still not defined (the user entered nothing, or entered
+      # and invalid option number), try again.
       info "$i is a required value. Trying again...";
     fi;
   done;
@@ -116,11 +133,12 @@ for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
     info "Missing required value for $i";
   fi;
   if [[ -n "$MISSING_REQUIRED" ]]; then
+    # We have missing required values; print usage (which will end execution).
     usage;
   fi
 done;
 
-# Notify user we're about to begin.
+# Notify user we're about to begin with the given values.
 info "Beginning linode creation with these values:"
 for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
   info "$i ${!i}";
@@ -133,27 +151,36 @@ if [[ -z "$SKIP_CONFIRMATION" ]]; then
   info "Continuing."
 fi;
 
+# Here we begin processing to create and setup the linode.
+# Create a password file (TODO: for some reason, scope problems have required
+# that we create this file here in the global scope, rather than in a function).
 PASSWORDLOG=$(createlogfile "linode_passwords");
 info "Password log created at $PASSWORDLOG";
 
-#LINODEID=$(create "$LABEL" "$REGION" "$TYPE" $CREATE_IMAGE $(generatepassword "root"));
-LINODEID=34133621;
-waitforstatus "running" $LINODEID;
+# Create the linode and note its ID.
+LINODEID=$(create "$LABEL" "$REGION" "$TYPE" $CREATE_IMAGE $(generatepassword "root"));
+# Store the new linode's IP address.
 IP=$(getlinodevalue ipv4 $LINODEID);
 info "IP: $IP";
-#waitforssh root $IP
 
+# Wait until the linode is running.
+waitforstatus "running" $LINODEID;
+# Wait until ssh is active on the linode.
+waitforssh root $IP
+
+# Prepare a config file for the setup scripts.
 CONFIGFILE=$(createsetupconfig "$LINODEID" "$SERVERNAME" "$USERNAME" "$DOMAINNAME");
 info "configfile: $CONFIGFILE";
-cat $CONFIGFILE;
 
-
+# Upload the setup scripts and the config file.
 scp ${PROVISION_SCRIPTS_DIR}/*setup*sh root@$IP:.
 scp $CONFIGFILE root@$IP:config.sh
-ssh root@$IP ls -la
+# Remove the setup config file; it contains passwords and should not be retained.
+rm $CONFIGFILE;
 
 # Run setup scripts in background (ref https://stackoverflow.com/a/2831449).
 info "Starting setupall.sh on $IP."
 ssh root@$IP "sh -c 'nohup ./setupall.sh > /dev/null 2>&1 &'"
 
+# Inform the user of the password log file.
 info "Passwords in $PASSWORDLOG";

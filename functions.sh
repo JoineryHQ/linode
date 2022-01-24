@@ -21,33 +21,34 @@ fi
 # see https://stackoverflow.com/a/9894126
 PID=$$;
 
-# Globals
+# Globals;
+# Log file for auto-generated passwords.
 PASSWORDLOG="";
 
+# Print informative message to STDERR.
 function info {
   >&2 echo "$1";
 }
 
+# Print fatal error to STDERR and kill script.
 function fatal {
   >&2 echo "FATAL ERROR: $1";
   kill -s TERM $PID;
 }
 
+# Log a message to the password log file.
 function logpassword {
   info "Logging to $PASSWORDLOG: $1";
   echo "$1" >> $PASSWORDLOG;  
 }
 
+# Print a progress dot to STDERR.
 function progress {
   >&2 echo -n "."
 }
 
+# Create a linode with the given parameters.
 function create {
-
-#  num=$#
-#  for order in $(seq 1 ${num}); do # `$(...)` is better than backticks
-#    info "create: $order: ${!order}"               # indirection
-#  done
 
   local LABEL="$1";
   local REGION="$2";
@@ -56,24 +57,28 @@ function create {
   local ROOTPASS="$5";
   
   info "Attempt create linode type='$TYPE' region='$REGION' image='$IMAGE' --label='$LABEL'";
-  LINODEID=$(linode-cli linodes create --text --format=id --no-headers --type="$TYPE" --region="$REGION" --image="$IMAGE" --root_pass="$ROOTPASS" --label="$LABEL" --authorized_keys="$(cat /home/as/.ssh/id_rsa.pub)")
+  # Create the linode and store its id.
+  LINODEID=$(linode-cli linodes create --text --format=id --no-headers --type="$TYPE" --region="$REGION" --image="$IMAGE" --root_pass="$ROOTPASS" --label="$LABEL" --authorized_keys="$(cat /home/as/.ssh/id_rsa.pub)");
+
+  # Report status; die if creation failed.
   if [[ -n "$LINODEID" ]]; then
     info "Created linode, ID: $LINODEID; label: $LABEL"
   else 
     # fatal "Linode creation failed. See notes above."
     fatal "Linode creation failed. See notes above."
-    
   fi
 
   echo $LINODEID;
 }
 
+# For a given linode (by id), retrieve a particalar value from the `linode-cli linodes list` api.
 function getlinodevalue {
   local NAME="$1"
   local LINODEID="$2"
   linode-cli linodes list --id=$LINODEID --format="$NAME" --text --no-headers;
 }
 
+# Wait (up to $WAITTIME seconds) for the given linode to have a given status.
 function waitforstatus {
   local TARGETSTATUS="$1";
   local LINODEID="$2";
@@ -88,23 +93,29 @@ function waitforstatus {
     fi
     LIVESTATUS=$(getlinodevalue "status" $LINODEID);
     if [[ "$LIVESTATUS" != "$TARGETSTATUS" ]]; then
+      # print a dot to indicate passage of time.
       progress;
+      # wait 1 second before trying again.
       sleep 1; 
    fi
-  done
+  done;
   info "Linode $LINODEID has achieved status $LIVESTATUS.";
 }
 
+# Generate a password based on values from random.org. Log the password, using the given label, in the password log file.
+# generatepassword $label.
 function generatepassword {
   local PASS=$(curl -s "https://www.random.org/strings/?num=2&len=20&digits=on&upperalpha=on&loweralpha=on&unique=on&format=plain&rnd=new" | tr -d '\n' 2>/dev/null);
   logpassword "$1: $PASS"; 
   echo $PASS;
 }
 
+# Create a log file for any purpose using the given base-name, with template "/tmp/$1.XXXXXXXX"
 function createlogfile {
   echo $(mktemp "/tmp/$1.XXXXXXXX");
 }
 
+# Create a config file to be used by setup scripts. Return the full path of that file.
 function createsetupconfig {
   local LINODEID="$LINODEID";
   LINODEID="$1";
@@ -132,10 +143,9 @@ function createsetupconfig {
   echo $LOCALCONFIGFILE;
 }
 
+# Wait for ssh to be active on the given linode
+# waitforssh $user $host
 function waitforssh {
-  # user = $1
-  # host = $2
-
   # Ensure any existing key for this new server IP is removed. We've seen cases
   # in testing where IP addresses are re-used.
   ssh-keygen -R $2
@@ -155,6 +165,7 @@ function waitforssh {
   fatal "Timeout exceeded waiting on ssh connection for $1@$2";
 }
 
+# Ensure that the required values from config.sh are all populated.
 function validateconfig {
   # Ensure complete config:
   MISSING_CONFIG="";
