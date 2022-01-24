@@ -156,11 +156,13 @@ function waitforssh {
   while [[ $(date +%s) -le $TIMEOUTTIME ]]; do
     # Option "StrictHostKeyChecking no" will add server key to local store without checking.
     # ":" is bash no-op.
-    ssh -o "StrictHostKeyChecking no" $1@$2 ":"
+    ssh -q -o "StrictHostKeyChecking no" $1@$2 ":" 2>&1 > /dev/null;
     if [ $? -eq 0 ]; then
       info "ssh connection successful for $1@$2";
       return;
-    fi
+    fi;
+    progress;
+    sleep 1;
   done
   fatal "Timeout exceeded waiting on ssh connection for $1@$2";
 }

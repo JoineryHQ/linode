@@ -183,4 +183,4 @@ info "Starting setupall.sh on $IP."
 ssh root@$IP "sh -c 'nohup ./setupall.sh > /dev/null 2>&1 &'"
 
 # Inform the user of the password log file.
-info "Passwords in $PASSWORDLOG";
+info "Passwords in $PASSWORDLOG . DELETE THIS FILE ASAP.";
