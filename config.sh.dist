@@ -1,2 +1,11 @@
-DEFAULT_ADMINUSERNAME="";
+# Administrative username for all created linodes.
+CREATE_ADMINUSERNAME="";
+
+# Linode image for all created linodes.
+CREATE_IMAGE="";
+
+# Full system path to local directory containing setup scripts (setupall.sh and others)
 PROVISION_SCRIPTS_DIR="";
+
+# Wait timeout in seconds.
+WAITTIME="";

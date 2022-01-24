@@ -21,9 +21,6 @@ fi
 # see https://stackoverflow.com/a/9894126
 PID=$$;
 
-# Wait timeout in seconds.
-WAITTIME=100;
-
 # Globals
 PASSWORDLOG="";
 
@@ -95,7 +92,7 @@ function waitforstatus {
       sleep 1; 
    fi
   done
-  info $LIVESTATUS;
+  info "Linode $LINODEID has achieved status $LIVESTATUS.";
 }
 
 function generatepassword {
@@ -114,125 +111,60 @@ function createsetupconfig {
   SERVERNAME="$2";
   USER="$3";
   DOMAINNAME="$4";
-  ADMINUSERNAME="$DEFAULT_ADMINUSERNAME";
+  ADMINUSERNAME="$CREATE_ADMINUSERNAME";
+
+  logpassword "adminuser_name: $ADMINUSERNAME";
+  logpassword "customeruser_name: $USER";
 
   LOCALCONFIGFILE=$(mktemp "/tmp/linode_setup_config_${LINODEID}.sh.XXXXXXX");
 
   echo "# Used by setup.sh" >> $LOCALCONFIGFILE;
   echo "ADMINUSERNAME=\"$ADMINUSERNAME\";" >> $LOCALCONFIGFILE;
-  echo "ADMINUSERPASS=\"$(generatepassword admin_user)\";" >> $LOCALCONFIGFILE;
+  echo "ADMINUSERPASS=\"$(generatepassword adminuser_pass)\";" >> $LOCALCONFIGFILE;
   echo "SERVERNAME=\"$SERVERNAME\";" >> $LOCALCONFIGFILE;
   echo "MYSQLROOTPASS=\"$(generatepassword mysql_root)\";" >> $LOCALCONFIGFILE;
   echo "" >> $LOCALCONFIGFILE;
   echo "# Used by customer_setup.sh" >> $LOCALCONFIGFILE;
   echo "USER=\"$USER\";" >> $LOCALCONFIGFILE;
-  echo "PASS=\"$(generatepassword user_pass)\";" >> $LOCALCONFIGFILE;
+  echo "PASS=\"$(generatepassword customeruser_pass)\";" >> $LOCALCONFIGFILE;
   echo "DOMAINNAME=\"$DOMAINNAME\";" >> $LOCALCONFIGFILE;
 
   echo $LOCALCONFIGFILE;
 }
 
+function waitforssh {
+  # user = $1
+  # host = $2
 
-PASSWORDLOG=$(createlogfile "linode_passwords");
-info "Password log created at $PASSWORDLOG";
+  # Ensure any existing key for this new server IP is removed. We've seen cases
+  # in testing where IP addresses are re-used.
+  ssh-keygen -R $2
 
-LINODEID=$(create "0001-test" "us-east" "g6-nanode-1" "linode/ubuntu18.04" $(generatepassword "root"));
-waitforstatus "running" $LINODEID;
-IP=$(getlinodevalue ipv4 $LINODEID);
-echo "IP: $IP";
-# Add server key to local store; ":" is bash no-op.
-ssh -o "StrictHostKeyChecking no" root@$IP ":";
+  local TIMEOUTTIME=$(( $(date +%s) + $WAITTIME));
+  
+  info "Waiting for ssh active on $1@$2 ...";
+  while [[ $(date +%s) -le $TIMEOUTTIME ]]; do
+    # Option "StrictHostKeyChecking no" will add server key to local store without checking.
+    # ":" is bash no-op.
+    ssh -o "StrictHostKeyChecking no" $1@$2 ":"
+    if [ $? -eq 0 ]; then
+      info "ssh connection successful for $1@$2";
+      return;
+    fi
+  done
+  fatal "Timeout exceeded waiting on ssh connection for $1@$2";
+}
 
-CONFIGFILE=$(createsetupconfig "1234" theserver theuser thedomainname);
-echo "configfile: $CONFIGFILE";
-cat $CONFIGFILE;
-
-echo "Passwords in $PASSWORDLOG";
-
-
-# Region for operations.  Choices are:
-#  1 - ap-west
-#  2 - ca-central
-#  3 - ap-southeast
-#  4 - us-central
-#  5 - us-west
-#  6 - us-southeast
-#  7 - us-east
-#  8 - eu-west
-#  9 - ap-south
-#  10 - eu-central
-#  11 - ap-northeast
-
-# Type of Linode to deploy.  Choices are:
-#  1 - g6-nanode-1
-#  2 - g6-standard-1
-#  3 - g6-standard-2
-#  4 - g6-standard-4
-#  5 - g6-standard-6
-#  6 - g6-standard-8
-#  7 - g6-standard-16
-#  8 - g6-standard-20
-#  9 - g6-standard-24
-#  10 - g6-standard-32
-#  11 - g7-highmem-1
-#  12 - g7-highmem-2
-#  13 - g7-highmem-4
-#  14 - g7-highmem-8
-#  15 - g7-highmem-16
-#  16 - g6-dedicated-2
-#  17 - g6-dedicated-4
-#  18 - g6-dedicated-8
-#  19 - g6-dedicated-16
-#  20 - g6-dedicated-32
-#  21 - g6-dedicated-48
-#  22 - g6-dedicated-50
-#  23 - g6-dedicated-56
-#  24 - g6-dedicated-64
-#  25 - g1-gpu-rtx6000-1
-#  26 - g1-gpu-rtx6000-2
-#  27 - g1-gpu-rtx6000-3
-#  28 - g1-gpu-rtx6000-4
-
-# Image to deploy to new Linodes.  Choices are:
-#  1 - linode/almalinux8
-#  2 - linode/alpine3.11
-#  3 - linode/alpine3.12
-#  4 - linode/alpine3.13
-#  5 - linode/alpine3.14
-#  6 - linode/alpine3.15
-#  7 - linode/arch
-#  8 - linode/centos7
-#  9 - linode/centos8
-#  10 - linode/centos-stream8
-#  11 - linode/centos-stream9
-#  12 - linode/debian10
-#  13 - linode/debian11
-#  14 - linode/debian9
-#  15 - linode/fedora33
-#  16 - linode/fedora34
-#  17 - linode/fedora35
-#  18 - linode/gentoo
-#  19 - linode/debian11-kube-v1.20.7
-#  20 - linode/debian9-kube-v1.20.7
-#  21 - linode/debian11-kube-v1.21.1
-#  22 - linode/debian9-kube-v1.21.1
-#  23 - linode/debian11-kube-v1.22.2
-#  24 - linode/debian9-kube-v1.22.2
-#  25 - linode/opensuse15.2
-#  26 - linode/opensuse15.3
-#  27 - linode/rocky8
-#  28 - linode/slackware14.2
-#  29 - linode/ubuntu16.04lts
-#  30 - linode/ubuntu18.04
-#  31 - linode/ubuntu20.04
-#  32 - linode/ubuntu21.04
-#  33 - linode/ubuntu21.10
-#  34 - linode/alpine3.10
-#  35 - linode/alpine3.9
-#  36 - linode/centos6.8
-#  37 - linode/debian8
-#  38 - linode/fedora31
-#  39 - linode/fedora32
-#  40 - linode/opensuse15.1
-#  41 - linode/slackware14.1
-#  42 - linode/ubuntu20.10
+function validateconfig {
+  # Ensure complete config:
+  MISSING_CONFIG="";
+  for i in CREATE_ADMINUSERNAME CREATE_IMAGE PROVISION_SCRIPTS_DIR WAITTIME; do
+    if [[ -z "${!i}" ]]; then
+      MISSING_CONFIG=1;
+      info "Missing required configuration value: $i";
+    fi;
+  done;
+  if [[ -n "$MISSING_CONFIG" ]]; then
+    fatal "Missing required configurations in ${MYDIR}/config.sh"
+  fi;
+}
