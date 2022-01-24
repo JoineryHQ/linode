@@ -11,4 +11,4 @@ Installation:
   variables are required.
 
 Usage: 
-* `createhosting.sh -h` to see usage.
+* Create a linode and set it up for hosting: `createhosting.sh -h` to see usage.
