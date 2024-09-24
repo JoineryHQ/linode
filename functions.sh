@@ -124,21 +124,24 @@ function createsetupconfig {
   DOMAINNAME="$4";
   ADMINUSERNAME="$CREATE_ADMINUSERNAME";
 
-  logpassword "adminuser_name: $ADMINUSERNAME";
-  logpassword "customeruser_name: $USER";
+  logpassword "admin_user_name: $ADMINUSERNAME";
+  logpassword "customer_user_name: $USER";
 
   LOCALCONFIGFILE=$(mktemp "/tmp/linode_setup_config_${LINODEID}.sh.XXXXXXX");
 
   echo "# Used by setup.sh" >> "$LOCALCONFIGFILE";
   echo "ADMINUSERNAME=\"$ADMINUSERNAME\";" >> "$LOCALCONFIGFILE";
-  echo "ADMINUSERPASS=\"$(generatepassword adminuser_pass)\";" >> "$LOCALCONFIGFILE";
+  echo "ADMINUSERPASS=\"$(generatepassword admin_user_pass)\";" >> "$LOCALCONFIGFILE";
   echo "SERVERNAME=\"$SERVERNAME\";" >> "$LOCALCONFIGFILE";
-  echo "MYSQLROOTPASS=\"$(generatepassword mysql_root)\";" >> "$LOCALCONFIGFILE";
+  echo "MYSQLROOTPASS=\"$(generatepassword mysql_root_pass)\";" >> "$LOCALCONFIGFILE";
   echo "" >> "$LOCALCONFIGFILE";
   echo "# Used by customer_setup.sh" >> "$LOCALCONFIGFILE";
   echo "USER=\"$USER\";" >> "$LOCALCONFIGFILE";
-  echo "PASS=\"$(generatepassword customeruser_pass)\";" >> "$LOCALCONFIGFILE";
+  echo "PASS=\"$(generatepassword customer_user_pass)\";" >> "$LOCALCONFIGFILE";
   echo "DOMAINNAME=\"$DOMAINNAME\";" >> "$LOCALCONFIGFILE";
+  echo "MYSQL_CUSTOMER_USER=\"$USER\";" >> "$LOCALCONFIGFILE";
+  echo "MYSQL_CUSTOMER_PASS=\"$(generatepassword mysql_customer_pass)\";" >> "$LOCALCONFIGFILE";
+  echo "PROVISIONING_NOTIFY_EMAIL=\"$PROVISIONING_NOTIFY_EMAIL\";" >> "$LOCALCONFIGFILE";
 
   echo "$LOCALCONFIGFILE";
 }

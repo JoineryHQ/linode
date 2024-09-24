@@ -64,7 +64,7 @@ while getopts l:r:t:s:u:d:yh FLAG; do
       SERVERNAME=$OPTARG
       ;;
     u)
-      USERNAME=$OPTARG
+      CUSTOMER_USERNAME=$OPTARG
       ;;
     d)
       DOMAINNAME=$OPTARG
@@ -93,9 +93,9 @@ OPTIONS[LABEL]="-"
 OPTIONS[REGION]="regions list"
 OPTIONS[TYPE]="linodes types"
 OPTIONS[SERVERNAME]="-"
-OPTIONS[USERNAME]="-"
+OPTIONS[CUSTOMER_USERNAME]="-"
 OPTIONS[DOMAINNAME]="-"
-for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
+for i in LABEL REGION TYPE SERVERNAME CUSTOMER_USERNAME DOMAINNAME ; do
   while [[ -z "${!i}" ]]; do
     if [[ "${OPTIONS[$i]}" != "-" ]]; then
       # This is a linode-cli set of options.
@@ -127,7 +127,7 @@ done;
 
 # Just in case, test all required args again.
 MISSING_REQUIRED="";
-for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
+for i in LABEL REGION TYPE SERVERNAME CUSTOMER_USERNAME DOMAINNAME ; do
   if [[ -z "${!i}" ]]; then
     MISSING_REQUIRED=1;
     info "Missing required value for $i";
@@ -140,10 +140,12 @@ done;
 
 # Notify user we're about to begin with the given values.
 info "Beginning linode creation with these values:"
-for i in LABEL REGION TYPE SERVERNAME USERNAME DOMAINNAME ; do
+for i in LABEL REGION TYPE SERVERNAME CUSTOMER_USERNAME DOMAINNAME ; do
   info "$i ${!i}";
 done
 info "IMAGE: $CREATE_IMAGE"
+
+info "Command: $0 -l $LABEL -r $REGION -t $TYPE -s $SERVERNAME -u $CUSTOMER_USERNAME -d $DOMAINNAME"
 
 # If not SKIP_CONFIRMATION, get confirmation before continuing:
 if [[ -z "$SKIP_CONFIRMATION" ]]; then
@@ -169,18 +171,26 @@ waitforstatus "running" "$LINODEID";
 waitforssh root "$IP"
 
 # Prepare a config file for the setup scripts.
-CONFIGFILE=$(createsetupconfig "$LINODEID" "$SERVERNAME" "$USERNAME" "$DOMAINNAME");
+CONFIGFILE=$(createsetupconfig "$LINODEID" "$SERVERNAME" "$CUSTOMER_USERNAME" "$DOMAINNAME");
 info "configfile: $CONFIGFILE";
 
-# Upload the setup scripts and the config file.
-scp "${PROVISION_SCRIPTS_DIR}"/*setup*sh root@"$IP":.
-scp "$CONFIGFILE" root@"$IP":config.sh
+# Upload the setup scripts, assets, and the config file.
+ssh root@"$IP" mkdir setup
+scp "${PROVISION_SCRIPTS_DIR}"/*setup*sh root@"$IP":./setup/.
+scp -r "${PROVISION_SCRIPTS_DIR}"/assets root@"$IP":./setup/.
+scp "$CONFIGFILE" root@"$IP":./setup/config.sh
 # Remove the setup config file; it contains passwords and should not be retained.
 rm "$CONFIGFILE";
 
+# Inform user of IP address:
+info "New server created at: $IP"
+
 # Run setup scripts in background (ref https://stackoverflow.com/a/2831449).
 info "Starting setupall.sh on $IP."
-ssh root@"$IP" "sh -c 'nohup ./setupall.sh > /dev/null 2>&1 &'"
+ssh root@"$IP" "sh -c 'nohup ./setup/setupall.sh > /dev/null 2>&1 &'"
+
+# Echo command again at the end for easy reference.
+info "Command: $0 -l $LABEL -r $REGION -t $TYPE -s $SERVERNAME -u $CUSTOMER_USERNAME -d $DOMAINNAME"
 
 # Inform the user of the password log file.
 info "Passwords in $PASSWORDLOG . DELETE THIS FILE ASAP.";
