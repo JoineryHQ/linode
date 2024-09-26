@@ -32,7 +32,7 @@ function info {
 
 # Print fatal error to STDERR and kill script.
 function fatal {
-  >&2 echo "FATAL ERROR: $1";
+  info "FATAL ERROR: $1";
   kill -s TERM $PID;
 }
 
