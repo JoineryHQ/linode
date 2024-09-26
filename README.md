@@ -12,3 +12,4 @@ Installation:
 
 Usage: 
 * Create a linode and set it up for hosting: `createhosting.sh -h` to see usage.
+* Reboot a linode by label: `reboot.sh -h` to see usage.
