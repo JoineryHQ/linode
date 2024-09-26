@@ -36,6 +36,19 @@ function usage {
   exit 1;
 }
 
+# Process user-provided options.
+while getopts h FLAG; do
+  case $FLAG in
+    h)
+      usage;
+      ;;
+    \?) #unrecognized option - show help
+      info "Option -$OPTARG not allowed."
+      usage;
+      ;;
+  esac
+done
+
 LABEL=$1;
 
 # Just in case, test all required args again.
