@@ -89,7 +89,7 @@ function waitforstatus {
   info "Waiting for $TARGETSTATUS status on linode $LINODEID ...";
   while [[ "$LIVESTATUS" != "$TARGETSTATUS" ]]; do
     if [[ $(date +%s) -ge $TIMEOUTTIME ]]; then
-      fatal "waitforstatus timed out waiting for $TARGETSTATUS status on linode $LINODEID";
+      fatal "waitforstatus timed out waiting for $TARGETSTATUS status on linode $LINODEID (waited $WAITTIME seconds)";
     fi
     LIVESTATUS=$(getlinodevalue "status" "$LINODEID");
     if [[ "$LIVESTATUS" != "$TARGETSTATUS" ]]; then
@@ -129,6 +129,12 @@ function createsetupconfig {
 
   LOCALCONFIGFILE=$(mktemp "/tmp/linode_setup_config_${LINODEID}.sh.XXXXXXX");
 
+  # Copy config from $PROVISION_SCRIPTS_DIR into new file; this will provide
+  # default config vars; we'll then append to it in order to override those defaults.
+  cat "${PROVISION_SCRIPTS_DIR}/config.sh" > "$LOCALCONFIGFILE";
+  echo "
+## End of default configs (above). Start of install-specific configs (below).
+" >> "$LOCALCONFIGFILE";
   echo "# Used by setup.sh" >> "$LOCALCONFIGFILE";
   echo "ADMINUSERNAME=\"$ADMINUSERNAME\";" >> "$LOCALCONFIGFILE";
   echo "ADMINUSERPASS=\"$(generatepassword admin_user_pass)\";" >> "$LOCALCONFIGFILE";
