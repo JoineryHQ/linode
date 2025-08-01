@@ -161,7 +161,7 @@ fi;
 # Create a password file (TODO: for some reason, scope problems have required
 # that we create this file here in the global scope, rather than in a function).
 PASSWORDLOG=$(createlogfile "linode_passwords");
-info "Password log created at $PASSWORDLOG";
+logpassword "SERVER LABEL: $LABEL";
 
 # Create the linode and note its ID.
 LINODEID=$(create "$LABEL" "$REGION" "$TYPE" "$CREATE_IMAGE" $(generatepassword "root"));
