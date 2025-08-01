@@ -145,7 +145,11 @@ for i in LABEL REGION TYPE SERVERNAME CUSTOMER_USERNAME DOMAINNAME ; do
 done
 info "IMAGE: $CREATE_IMAGE"
 
-info "Command: $0 -l $LABEL -r $REGION -t $TYPE -s $SERVERNAME -u $CUSTOMER_USERNAME -d $DOMAINNAME"
+COMMAND="$0 -l $LABEL -r $REGION -t $TYPE -s $SERVERNAME -u $CUSTOMER_USERNAME -d $DOMAINNAME"
+# Echo command for easy reference.
+info "Command: $COMMAND"
+# Write command to log file for future reference.
+logCommand "$COMMAND"
 
 # If not SKIP_CONFIRMATION, get confirmation before continuing:
 if [[ -z "$SKIP_CONFIRMATION" ]]; then
@@ -190,7 +194,8 @@ info "Starting setupall.sh on $IP."
 ssh root@"$IP" "sh -c 'nohup ./setup/setupall.sh > /dev/null 2>&1 &'"
 
 # Echo command again at the end for easy reference.
-info "Command: $0 -l $LABEL -r $REGION -t $TYPE -s $SERVERNAME -u $CUSTOMER_USERNAME -d $DOMAINNAME"
+info "Command: $COMMAND"
+info "(command logged to $COMMAND_LOG_FILE)"
 
 # Inform the user of the password log file.
 info "Passwords in $PASSWORDLOG . DELETE THIS FILE ASAP.";

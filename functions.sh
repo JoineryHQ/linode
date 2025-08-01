@@ -24,10 +24,20 @@ PID=$$;
 # Globals;
 # Log file for auto-generated passwords.
 PASSWORDLOG="";
+# Log file for commands.
+COMMAND_LOG_FILE="${MYDIR}/command.log"
 
 # Print informative message to STDERR.
 function info {
   >&2 echo "$1";
+}
+
+# Write to command-log file for easy future reference.
+function logCommand  {
+  # truncate command log file to max 99 lines.
+  n=$(( $(wc -l < $COMMAND_LOG_FILE)-99 )); [ $n -gt 0 ] && sed -i "1,${n}d" $COMMAND_LOG_FILE
+  date=$(date +"%Y-%m-%dT%H:%M:%S%z")
+  echo "${date}: $1" >> $COMMAND_LOG_FILE
 }
 
 # Print fatal error to STDERR and kill script.
